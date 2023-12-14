@@ -1,0 +1,50 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+autonumber
+
+database sms_source
+participant Loader
+queue mq
+participant Dispatcher
+actor User1
+
+activate Loader
+Loader -> sms_source: LoadSMS(1000)
+activate sms_source
+sms_source --> Loader: Loaded
+deactivate sms_source
+Loader -> mq: push(sms)
+activate mq
+
+activate User1
+User1 -> Dispatcher: Connect(username, password)
+activate Dispatcher
+Dispatcher --> User1: Connected(token)
+
+Dispatcher -> mq: readMessage(sms)
+mq --> Dispatcher: read(sms)
+mq -> mq: setWaiting(sms[])
+Dispatcher -> User1: dispatch(sms[])
+User1 -> User1: SendMessages(sms[])
+
+User1 -> Dispatcher: status_message(sms, delivered?(y/n) )
+Dispatcher -> mq: changeStatus(sms)
+
+mq -> mq: updateStatus(sms)
+Loader -> mq: getDelivered(sms[])
+mq --> Loader: delivered(sms[])
+
+Loader -> sms_source: updateDelivered(sms[])
+activate sms_source
+sms_source --> Loader: updated()
+deactivate sms_source
+
+User1 -> Dispatcher: Disconnect
+Dispatcher --> User1: Disconnected
+
+deactivate User1
+deactivate mq
+deactivate Loader
+deactivate Dispatcher
+@enduml
